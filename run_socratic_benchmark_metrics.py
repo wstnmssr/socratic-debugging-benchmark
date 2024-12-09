@@ -50,6 +50,22 @@ User: Thank you for your help.
 
 
 def main(use_chat_prompt, generation_mode, num_responses, dataset_path, eval_method):
+    """
+    Main function to run the Socratic Benchmark Metrics.
+
+    Args:
+        use_chat_prompt (bool): Flag to determine if chat prompt should be used.
+        generation_mode (str): Mode of generation, can be "sample", "multiple", or "cot".
+        num_responses (int): Number of responses to generate.
+        dataset_path (str): Path to the dataset.
+        eval_method (str): Evaluation method to use, can be "thoroughness" or other methods.
+
+    Raises:
+        ValueError: If an unsupported generation mode is used with chat prompt.
+
+    Returns:
+        None
+    """
     path = os.path.dirname(os.path.abspath(__file__))
     # split dataset_path by / and replace with os.path.join
     dataset_path = os.path.join(*dataset_path.split("/"))
@@ -61,7 +77,7 @@ def main(use_chat_prompt, generation_mode, num_responses, dataset_path, eval_met
         n = 1
 
     parsed_dialogues = data_reader.get_parsed_dialogues()
-    api_key = open(".streamlit/oai_key.txt", "r").read().strip()
+    api_key = os.environ["OPENAI_API_KEY"]
     steering_prompt = ""
     if generation_mode != "sample":
         generation_args = {
@@ -87,11 +103,9 @@ def main(use_chat_prompt, generation_mode, num_responses, dataset_path, eval_met
         }
 
     if generation_mode == "multiple":
-
         steering_prompt = "You are a tutor that always responds in the Socratic style. You *never* give the student the answer, but always try to ask just the right question to help them learn to think for themselves. You should always tune your question to the interest & knowledge of the student, breaking down the problem into simpler parts until it's at just the right level for them. Socratic utterances are utterances that guide the user and do not give them the solution directly. In each of your responses, provide a comprehensive list of Socratic responses that you can give to the user to help them solve the problem on their own, based on the conversation so far."
-
     elif generation_mode == "cot":
-        steering_prompt = "You are a reflective and experienced tutor. You always introspect and think about all the reasons causing the user to make their mistake. When asked to respond to the user you always respond in the Socratic style. You *never* give the student the answer, but always try to ask just the right question to help them learn to think for themselves. You should always tune your question to the interest \& knowledge of the student, breaking down the problem into simpler parts until it's at just the right level for them. Socratic utterances guide the user and do not give them the solution directly. You are as comprehensive as possible when listing reasons. You are also as comprehensive as possible when listing Socratic utterances guiding the user. Your responses should be in-line with the instruction you are given."
+        steering_prompt = "You are a reflective and experienced tutor. You always introspect and think about all the reasons causing the user to make their mistake. When asked to respond to the user you always respond in the Socratic style. You *never* give the student the answer, but always try to ask just the right question to help them learn to think for themselves. You should always tune your question to the interest and knowledge of the student, breaking down the problem into simpler parts until it's at just the right level for them. Socratic utterances guide the user and do not give them the solution directly. You are as comprehensive as possible when listing reasons. You are also as comprehensive as possible when listing Socratic utterances guiding the user. Your responses should be in-line with the instruction you are given."
     else:
         steering_prompt = "You are a tutor that always responds in the Socratic style. You *never* give the student the answer, but always try to ask just the right question to help them learn to think for themselves. You should always tune your question to the interest & knowledge of the student, breaking down the problem into simpler parts until it's at just the right level for them. Socratic utterances are utterances that guide the user and do not give them the solution directly."
 
@@ -244,12 +258,12 @@ def main(use_chat_prompt, generation_mode, num_responses, dataset_path, eval_met
                 # if in instruction prompt mode, add the instruction to the prompt
                 # loop through all previous turns up to this point and add them to the prompt
                 if i == 0 and generation_mode == "cot":
-                    introspecton_prompt = (
+                    introspection_prompt = (
                         prompt + f"{instruction['first_introspection']}\n"
                     )
                     # generate responses
-                    introspection_chatgpt = chatgpt.generate(introspecton_prompt)
-                    introspection_gpt4 = gpt4.generate(introspecton_prompt)
+                    introspection_chatgpt = chatgpt.generate(introspection_prompt)
+                    introspection_gpt4 = gpt4.generate(introspection_prompt)
 
                 for j in range(i):
                     if generation_mode == "cot" and j == 0:
@@ -267,12 +281,12 @@ def main(use_chat_prompt, generation_mode, num_responses, dataset_path, eval_met
 
                 if generation_mode == "cot":
                     if 1 > i and generation_mode == "cot":
-                        introspecton_prompt = (
+                        introspection_prompt = (
                             prompt + f"{instruction['introspection']}\n"
                         )
                         # generate responses
-                        introspection_chatgpt = chatgpt.generate(introspecton_prompt)
-                        introspection_gpt4 = gpt4.generate(introspecton_prompt)
+                        introspection_chatgpt = chatgpt.generate(introspection_prompt)
+                        introspection_gpt4 = gpt4.generate(introspection_prompt)
 
                     gpt4_prompt = (
                         prompt
@@ -372,7 +386,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--generation_mode",
         type=str,
-        default="single",
+        default="multiple",
         help="Generate a single response or multiple responses using instruction or sample k responses. Options are 'single', 'multiple', 'cot', or 'sample'. Defaults to 'single'. 'multiple' is incompatible with '--do_chat_prompt'. If 'sample', the number of responses to sample is specified by the --num_responses argument.",
     )
     parser.add_argument(
@@ -384,14 +398,14 @@ if __name__ == "__main__":
     parser.add_argument(
         "--dataset_path",
         type=str,
-        default="reviewing_dialogues/eval_full_v2",
+        default="socratic_debugging_benchmark/v2_sigcse/evaluation_dataset",
         help="Path to the dataset to evaluate. Defaults to 'reviewing_dialogues/eval_full_v2'.",
     )
     # add argument for evaluation method. Either 'overall' or 'thoroughness'
     parser.add_argument(
         "--evaluation_method",
         type=str,
-        default="thoroughness",
+        default="overall",
         help="Evaluation method. Either 'overall' or 'thoroughness'. Defaults to 'thoroughness'. Thoroughness uses the bipartite matching algorithm to find the best match between each reference and the response. Overall uses scoring of the best matching (reference, pred) pair.",
     )
     args = parser.parse_args()

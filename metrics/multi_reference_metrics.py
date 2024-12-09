@@ -4,7 +4,6 @@ from networkx.algorithms import bipartite
 from networkx.algorithms.matching import max_weight_matching
 from tqdm import tqdm
 
-
 class BaseMetric:
     def __init__(self, metric_name):
         self.metric = load(metric_name)
@@ -153,6 +152,8 @@ class BaseMetric:
         raise NotImplementedError("Subclasses should implement the _score_key method.")
 
     def _aggregate(self, scores):
+        if hasattr(self._score_key(scores[0]), '__iter__'):
+            return sum(sum(self._score_key(score)) for score in scores) / len(scores)
         return sum(self._score_key(score) for score in scores) / len(scores)
 
 
@@ -166,7 +167,6 @@ class Bleu4Metric(BaseMetric):
     def _score_key(self, score):
         return score['bleu']
 
-
 class RougeLMetric(BaseMetric):
     def __init__(self):
         super().__init__('rouge')
@@ -176,8 +176,6 @@ class RougeLMetric(BaseMetric):
     
     def _score_key(self, score):
         return score['rougeL']
-    
-
 
 class Rouge1Metric(BaseMetric):
     def __init__(self):
@@ -188,7 +186,6 @@ class Rouge1Metric(BaseMetric):
     
     def _score_key(self, score):
         return score['rouge1']
-
     
 class Rouge2Metric(BaseMetric):
     def __init__(self):
@@ -199,8 +196,6 @@ class Rouge2Metric(BaseMetric):
 
     def _score_key(self, score):
         return score['rouge2']
-
-    
 
 class BertScoreF1Metric(BaseMetric):
     def __init__(self, lang='en', model_type='microsoft/deberta-xlarge-mnli'):
@@ -217,3 +212,25 @@ class BertScoreF1Metric(BaseMetric):
             raise ValueError("BERTScore F1 score has more than one value.")
         else:
             return score['f1'][0]
+
+class BleuRTMetric(BaseMetric):
+    def __init__(self):
+        super().__init__('bleurt')
+
+    def compute(self, predictions, references, **kwargs):
+        return self.metric.compute(predictions=predictions, references=references)
+
+    def _score_key(self, score):
+        return statistics.fmean(score['scores'])
+    
+
+class JSDivergence(BaseMetric):
+    def __init__(self):
+        super().__init__('wmusser/jsdivergence')
+
+    def compute(self, predictions, references, **kwargs):
+        return self.metric.compute(predictions=predictions, references=references)
+
+    def _score_key(self, score):
+        return score['jsdivergence']
+    

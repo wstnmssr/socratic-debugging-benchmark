@@ -116,5 +116,5 @@ class MetricComputer:
             for metric_name, metric in self.metrics.items():
                 metric_results = [r for r in results if r['metric'] == metric_name]
                 df = pd.DataFrame(metric_results)
-                df.to_excel(writer, sheet_name=metric_name, index=False)
+                df.to_excel(writer, sheet_name=metric_name.replace('/',''), index=False)
         

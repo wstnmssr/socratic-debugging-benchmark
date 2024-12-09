@@ -5,14 +5,15 @@ import openai
 import os
 class GPT3Model(object):
 
-    def __init__(self, model_name, api_key, logger=None):
+    def __init__(self, model_name, logger=None):
         self.model_name = model_name
         try:
-            openai.api_key = api_key
+            openai.api_key = os.environ['OPENAI_API_KEY']
         except Exception:
             pass
         self.tokenizer = GPT2Tokenizer.from_pretrained("gpt2-xl")
         self.logger=logger
+        # self.client = OpenAI()
 
     def do_inference(self, input, output, max_length=2048):
         losses = []
@@ -50,7 +51,7 @@ class GPT3Model(object):
                                                     echo=echo,
                                                     stop='\n',
                                                     n=n)
-                print('prompt: ',prompt)
+                # print('prompt: ',prompt)
                 received = True
             except:
                 error = sys.exc_info()[0]
@@ -66,7 +67,8 @@ class GPT3Model(object):
 class ChatGPTModel(object):
     
         def __init__(self, model_name= 'gpt-3.5-turbo', 
-                     api_key= None, logger=None, 
+                     api_key=os.environ['OPENAI_API_KEY'], 
+                     logger=None, 
                      steering_prompt='',
                      generation_args = {
                             "max_tokens": 256,
@@ -87,20 +89,36 @@ class ChatGPTModel(object):
             self.logger=logger
             self.steering_prompt = steering_prompt
             self.generation_args = generation_args
+            # self.client = OpenAI()
     
         def do_inference(self, input, output, max_length=2048):
             raise NotImplementedError
     
-        def generate (self, prompt, echo=False):
+        def generate(self, prompt, echo=False):
             return self.chatgpt(prompt, echo)
         
         def generate_turn(self, turns, echo=False, user_identifier='user', system_identifier='system'):
+            """
+            Generate a response for a given sequence of conversational turns using OpenAI's ChatCompletion API.
+
+            Args:
+                turns (list of tuples): A list of tuples where each tuple contains a speaker identifier and the corresponding text.
+                echo (bool, optional): If True, prints the completion choices and the prompt. Defaults to False.
+                user_identifier (str, optional): The identifier for the user in the conversation. Defaults to 'user'.
+                system_identifier (str, optional): The identifier for the system/assistant in the conversation. Defaults to 'system'.
+
+            Returns:
+                str or list: The generated response content. If `self.generation_args['n'] > 1`, returns a list of unique responses.
+
+            Raises:
+                AssertionError: If an InvalidRequestError is encountered, indicating an issue with the prompt (e.g., too long).
+            """
             response = None
             received = False
             messages = [
                 {"role": "system", "content": self.steering_prompt},
             ]
-            for i, turn in enumerate(turns):
+            for _, turn in enumerate(turns):
                 speaker, text = turn
                 if speaker == user_identifier:
                     messages.append({"role": "user", "content": text})
@@ -147,6 +165,7 @@ class ChatGPTModel(object):
                         ],
                         **self.generation_args
                     )
+                    
                     if self.generation_args['n'] > 1:
                         # return all responses
                         return list(set([c.message['content'] for c in completion.choices]))
@@ -179,7 +198,7 @@ def test_chatgpt_generation():
         "n": 3, # number of responses to return,
         "stream": False,
     }
-    oai_key = open('.streamlit/oai_key.txt', 'r').read()
+    oai_key = os.environ['OPENAI_API_KEY']
     model = ChatGPTModel(generation_args=generation_args, api_key=oai_key)
     prompt = "Hello, how are you?"
     response = model.generate(prompt)
@@ -198,7 +217,7 @@ def test_gpt4_generation():
         "n": 2, # number of responses to return,
         "stream": False,
     }
-    oai_key = open('.streamlit/oai_key.txt', 'r').read()
+    oai_key = os.environ['OPENAI_API_KEY']
     model = ChatGPTModel(model_name = 'gpt-4', generation_args=generation_args, api_key=oai_key)
     prompt = "Hello, how are you?"
     response = model.generate(prompt)
